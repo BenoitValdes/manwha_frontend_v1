@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Minimal Webtoon Viewer</title>
+<style>
+  body { font-family: sans-serif; padding: 1em; }
+  a { cursor: pointer; color: blue; text-decoration: underline; }
+  img { max-width: 100%; display: block; margin: 0.5em 0; }
+</style>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#000000" />
+</head>
+<body>
+
+<template id="backLinkTemplate">
+  <a class="back-link"></a>
+</template>
+
+<template id="bookListTemplate">
+  <ul></ul>
+</template>
+
+<template id="chapterListTemplate">
+  <ul></ul>
+</template>
+
+<div id="content">Loading...</div>
+
+<script>
+  const contentEl = document.getElementById('content');
+
+  // Grab templates and remove from DOM
+  const backLinkTemplate = document.getElementById('backLinkTemplate');
+  const bookListTemplate = document.getElementById('bookListTemplate');
+  const chapterListTemplate = document.getElementById('chapterListTemplate');
+
+  backLinkTemplate.remove();
+  bookListTemplate.remove();
+  chapterListTemplate.remove();
+
+  const downloadedLocalStorageKey = 'chapterDownloaded'
+  const downloadedChaptersLS = JSON.parse(
+    localStorage.getItem(downloadedLocalStorageKey) || '{}'
+  );
+
+
+  class DownloadChapterBtn {
+    constructor(bookUrl, chapterGuid) {
+      this.bookUrl = bookUrl;
+      this.chapterGuid = chapterGuid;
+      // 1 for not downloaded, 2 for downloading, 3 for downloaded, 4 while removing
+      // 1 will trigger the download method
+      // 2 and 4 should do nothing as it's disabled
+      // 3 will trigger the delete method
+      // we need to check in the local storage if the chapter has been downloaded already.
+      this.state = this.chapterGuid in downloadedChaptersLS ? 3 : 1;
+      this.button = document.createElement('button');
+      this.updteButtonLook()
+      this.button.addEventListener('click', () => this.handleClick());
+    }
+
+    updteButtonLook() {
+      this.button.disabled = false;
+      switch(this.state){
+        case 1:
+          this.button.textContent = 'Download';
+          break;
+        case 2:
+          this.button.textContent = 'Downloading...';
+          this.button.disabled = true;
+          break;
+        case 3:
+          this.button.textContent = 'Remove';
+          break;
+        case 4:
+          this.button.textContent = 'Removing...';
+          this.button.disabled = true;
+          break;
+        default:
+          this.button.textContent = 'There is a bug';
+          this.button.disabled = true;
+          
+      }
+    }
+
+    async handleClick() {
+      if (this.state === 1) {
+        await this.download();
+      } else if (this.state === 3) {
+        await this.delete();
+      }
+    }
+
+    async download() {
+      this.setState(2);
+
+      const xml = await loadXML(this.bookUrl);
+      const chapter = await getChapterItem(xml, this.chapterGuid)
+      const imgs = await getChapterImages(chapter);
+      const storedData = []
+      await cacheUrl(this.bookUrl)
+      for (const img of imgs) {
+        await cacheUrl(img, true)
+        storedData.push(img)
+      }
+      downloadedChaptersLS[this.chapterGuid] = storedData
+      localStorage.setItem(downloadedLocalStorageKey, JSON.stringify(downloadedChaptersLS));
+
+      this.setState(3);
+    }
+
+    async delete() {
+      this.setState(4);
+
+      for (const url of downloadedChaptersLS[this.chapterGuid]){
+        await removeUrlFromCache(url)
+      }
+      
+      delete downloadedChaptersLS[this.chapterGuid]
+      localStorage.setItem(
+        downloadedLocalStorageKey, JSON.stringify(downloadedChaptersLS)
+      );
+
+      this.setState(1);
+    }
+
+    setState(state) {
+      this.state = state;
+      this.updteButtonLook()
+    }
+
+    getElement() {
+      return this.button;
+    }
+  }
+
+
+  // Ask the service worker to cache the data from the URL we provide
+  async function cacheUrl(url, isImage=false) {
+    return new Promise((resolve, reject) => {
+      if (navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+
+        function onMessage(event) {
+          if (event.data && event.data.type === 'CACHE_URL_DONE' && event.data.url === url) {
+            navigator.serviceWorker.removeEventListener('message', onMessage);
+            resolve();
+          }
+        }
+
+        navigator.serviceWorker.addEventListener('message', onMessage);
+        navigator.serviceWorker.controller.postMessage({ type: 'CACHE_URL', url: url, isImage: isImage});
+      }
+    });
+  }
+
+  // Ask the service worker to remove the URL from the cache
+  async function removeUrlFromCache(url) {
+    return new Promise((resolve, reject) => {
+      if (navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+
+        function onMessage(event) {
+          if (event.data && event.data.type === 'REMOVE_URL_DONE' && event.data.url === url) {
+            navigator.serviceWorker.removeEventListener('message', onMessage);
+            resolve();
+          }
+        }
+
+        navigator.serviceWorker.addEventListener('message', onMessage);
+        navigator.serviceWorker.controller.postMessage({ type: 'REMOVE_URL', url });
+      } else {
+        reject('Service worker controller not available or offline');
+      }
+    });
+  }
+
+  // Make the URL hashable to retrieve all the data and load the content
+  function getHashParams() {
+    const hash = location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    return {
+      book: params.get('book'),
+      chapter: params.get('chapter')
+    };
+  }
+
+  // Lazy function to load an XML and return the content.
+  async function loadXML(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error('Failed to load ' + url);
+    const text = await res.text();
+    return new window.DOMParser().parseFromString(text, "application/xml");
+  }
+
+  async function getChapterItem(bookXml, chapterGuid) {
+    return [
+      ...bookXml.querySelectorAll('item')
+    ].find(item => item.querySelector('guid').textContent === chapterGuid);
+  }
+
+  async function getChapterImages(chapterXml) {
+    const parser = new DOMParser();
+    const contentXml = parser.parseFromString(
+      chapterXml.querySelector('content\\:encoded, encoded').textContent || '', 'text/html'
+    );
+    const imgs = [...contentXml.querySelectorAll('img')];
+    return [...imgs].map(img => img.getAttribute('src'));
+  }
+
+  // Clear the content DIV that is recieving the page content.
+  function clearContent() {
+    contentEl.innerHTML = '';
+  }
+
+  // Display the caught error message to help to debug.
+  function renderError(msg) {
+    clearContent();
+    contentEl.textContent = msg;
+  }
+
+  // Store chapter viewed
+    function markChapterViewed(guid) {
+    console.log('markChapterViewed called with guid:', guid);
+    const viewed = JSON.parse(localStorage.getItem('viewedChapters') || '[]');
+    if (!viewed.includes(guid)) {
+        viewed.push(guid);
+        localStorage.setItem('viewedChapters', JSON.stringify(viewed));
+    }
+    }
+
+  // Cleate the dumb navbar item
+  function createBackLink(text, href) {
+    const clone = backLinkTemplate.content.cloneNode(true);
+    const a = clone.querySelector('a');
+    a.textContent = text;
+    a.href = href;
+    return clone;
+  }
+
+  // Loading the Main hage
+  async function renderMaster() {
+    // I want an extra button do add the feeds
+    clearContent();
+    contentEl.textContent = 'Loading master feed...';
+    const masterXMLURL = 'http://localhost:8080/master.xml'
+    try {
+      // cacheUrl(masterXMLURL)
+      const xml = await loadXML(masterXMLURL);
+      console.log(xml)
+      const books = [...xml.querySelectorAll('item')];
+      clearContent();
+      if (books.length === 0) {
+        contentEl.textContent = 'No books found in master feed.';
+        return;
+      }
+      const ul = bookListTemplate.content.querySelector('ul').cloneNode();
+      for (const book of books) {
+        const title = book.querySelector('title').textContent;
+        const url = book.querySelector('link').textContent;
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.textContent = title;
+        a.href = `#book=${encodeURIComponent(url)}`;
+        li.appendChild(a);
+        ul.appendChild(li);
+      }
+      contentEl.appendChild(ul);
+    } catch(e) {
+      renderError('Error loading master feed: ' + e.message);
+    }
+  }
+
+  // Loading the Book page
+  async function renderBook(bookUrl) {
+    clearContent();
+    contentEl.innerHTML = `<p>Loading book feed: ${bookUrl}...</p>`;
+    const viewedChapters = JSON.parse(
+        localStorage.getItem('viewedChapters') || '[]'
+    );
+
+    try {
+      const xml = await loadXML(bookUrl);
+      cacheUrl(bookUrl)
+      const bookTitle = xml.querySelector('channel > title').textContent || 'Book';
+      const chapters = [...xml.querySelectorAll('item')];
+      clearContent();
+
+      contentEl.appendChild(createBackLink('← Back to books', '#'));
+
+      const h2 = document.createElement('h2');
+      h2.textContent = bookTitle;
+      contentEl.appendChild(h2);
+
+      if (chapters.length === 0) {
+        contentEl.appendChild(document.createTextNode('No chapters found.'));
+        return;
+      }
+      const downloadedChaptersLS = JSON.parse(
+        localStorage.getItem(downloadedLocalStorageKey) || '{}'
+      );
+
+      const ul = chapterListTemplate.content.querySelector('ul').cloneNode();
+      for (const chap of chapters) {
+        const title = chap.querySelector('title').textContent;
+        const guid = chap.querySelector('guid').textContent;
+
+        // When offLine and if the chapter hasn't been dowloaded, then we don't show it!
+        if (!navigator.onLine && !downloadedChaptersLS[guid]){
+          continue
+        }
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        const btn = new DownloadChapterBtn(bookUrl, guid);
+        const isViewed = viewedChapters.includes(guid)
+
+        a.textContent = title + (isViewed ? ' (viewed)': '');
+        a.href = `#book=${encodeURIComponent(bookUrl)}&chapter=${encodeURIComponent(guid)}`;
+
+        const row = document.createElement('div');
+        row.appendChild(a);
+        row.appendChild(btn.getElement());
+
+        li.appendChild(row);
+        ul.appendChild(li);
+      }
+      if (ul.hasChildNodes()) {
+        contentEl.appendChild(ul);
+      }
+      else {
+        const p = document.createElement('p')
+        p.textContent = 'No chapters in this book...'
+        contentEl.appendChild(p)
+
+      }
+    } catch(e) {
+      renderError('Error loading book feed: ' + e.message);
+    }
+  }
+
+  let abortLoading = false;
+  // Add the images 1 by 1 in the order so we don't get spoiled with slow connection
+  async function loadImagesSequentially(imgUrls, container) {
+    // abortLoading = false;
+    for (const url of imgUrls) {
+        const img = document.createElement('img');
+        //
+        if (abortLoading) break;
+        // Optionally, you can add some "loading" placeholder or style here
+
+        container.appendChild(img);
+
+        await new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve(); // ignore error and move on
+        img.src = url; // start loading image
+        });
+    }
+    }
+
+  async function renderChapter(bookUrl, chapterGuid) {
+    clearContent();
+    contentEl.innerHTML = `<p>Loading chapter ${chapterGuid} from book ${bookUrl}...</p>`;
+    try {
+      const xml = await loadXML(bookUrl);
+      const bookTitle = xml.querySelector('channel > title').textContent || 'Book';
+      const chapter = await getChapterItem(xml, chapterGuid)
+      if (!chapter) {
+        renderError('Chapter not found.');
+        return;
+      }
+      clearContent();
+
+      contentEl.appendChild(createBackLink('← Back to chapters', `#book=${encodeURIComponent(bookUrl)}`));
+
+      const h2 = document.createElement('h2');
+      h2.textContent = bookTitle;
+      contentEl.appendChild(h2);
+
+      const h3 = document.createElement('h3');
+      h3.textContent = chapter.querySelector('title').textContent;
+      contentEl.appendChild(h3);
+
+      const imgs = await getChapterImages(chapter);
+      if (imgs.length === 0) {
+        contentEl.appendChild(document.createTextNode('No images found in chapter.'));
+        return;
+      }
+      await loadImagesSequentially(imgs, contentEl);
+
+      // move that later in the section that will show the next chapter button.
+      // It'll mean we went at the end of the view!
+      markChapterViewed(chapterGuid);
+    } catch(e) {
+      renderError('Error loading chapter: ' + e.message);
+    }
+  }
+
+  async function router() {
+    abortLoading = true;
+    const {book, chapter} = getHashParams();
+    if (!book) {
+      await renderMaster();
+    } else if (book && !chapter) {
+      await renderBook(book);
+    } else if (book && chapter) {
+      abortLoading = false;
+      await renderChapter(book, chapter);
+    }
+  }
+
+  window.addEventListener('hashchange', router);
+  window.addEventListener('load', router);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').then(reg => {
+        console.log('Service Worker registered:', reg);
+      }).catch(err => {
+        console.error('Service Worker registration failed:', err);
+      });
+    });
+    navigator.serviceWorker.ready.then(() => {
+    if (navigator.serviceWorker.controller) {
+      console.log("Controller is active:", navigator.serviceWorker.controller);
+    } else {
+      console.warn("No controller yet. Reload the page to let the SW take control.");
+    }
+  });
+  }
+</script>
+
+</body>
+</html>
