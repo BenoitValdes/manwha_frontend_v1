@@ -1,0 +1,15 @@
+
+body {
+    font-family: sans-serif;
+    padding: 1em;
+}
+a {
+    cursor: pointer;
+    color: red;
+    text-decoration: underline;
+}
+img {
+    max-width: 100%;
+    display: block;
+    margin: 0.5em 0;
+}
