@@ -1,7 +1,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js");
 
-
-// ✅ List of static files (previously precached)
+const FEED_CACHE = 'feeds';
+const IMAGE_CACHE = 'chapter-images';
 const STATIC_FILES = [
   "/",
   "/index.html",
@@ -11,6 +11,13 @@ const STATIC_FILES = [
   "/icon-192.png",
   "/icon-512.png",
 ];
+
+// Force new SW to activate immediately
+self.skipWaiting();
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
 
 // ✅ Precache files without automatically creating routes
 workbox.precaching.precache(
@@ -30,7 +37,7 @@ workbox.routing.registerRoute(
   ({url}) => url.pathname.endsWith(".xml") ||
              url.pathname.endsWith(".rss"),
   new workbox.strategies.NetworkFirst({
-    cacheName: "feeds",
+    cacheName: FEED_CACHE,
     networkTimeoutSeconds: 5
   })
 );
@@ -38,25 +45,29 @@ workbox.routing.registerRoute(
 workbox.routing.registerRoute(
   ({request}) => request.destination === "image",
   new workbox.strategies.CacheFirst({
-    cacheName: "chapter-images"
+    cacheName: IMAGE_CACHE
   })
 );
 
-// TODO: Need to rewird that part as it's just for images and other files are
-// handled differently!
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'CACHE_URL' && event.data.url) {
-    console.warn('I am gonna download an image ' + event.data.url)
-    // Most of the services will require no-cors to download the images...
-    const request_mode =  event.data.isImage ? 'no-cors' : 'cors'
     const request = new Request(event.data.url);
-    caches.open("chapter-images").then(cache => {
-      fetch(request, {mode: request_mode}).then(response => {
+    caches.open(IMAGE_CACHE).then(cache => {
+      fetch(request, {mode: 'no-cors'}).then(response => {
         cache.put(event.data.url, response.clone());
-        console.log('Cached URL: ' + event.data.url);
         // Send message back to the client that caching is done
         event.source.postMessage({ 
           type: 'CACHE_URL_DONE', 
+          url: event.data.url 
+        });
+      });
+    });
+  }
+  if (event.data && event.data.type === 'REMOVE_URL' && event.data.url) {
+    caches.open(IMAGE_CACHE).then(cache => {
+      cache.delete(event.data.url).then(success => {
+        event.source.postMessage({ 
+          type: 'REMOVE_URL_DONE', 
           url: event.data.url 
         });
       });
