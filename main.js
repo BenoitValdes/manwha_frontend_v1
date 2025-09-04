@@ -1,16 +1,30 @@
 
   const contentEl = document.getElementById('content');
+  const masterXMLURL = 'https://raw.githubusercontent.com/BenoitValdes/manwha_rss_feeds/refs/heads/main/master.xml';
 
   // Grab templates and remove from DOM
   const cardTemplate = document.getElementById('cardTemplate');
   const backLinkTemplate = document.getElementById('backLinkTemplate');
   const bookListTemplate = document.getElementById('bookListTemplate');
   const chapterListTemplate = document.getElementById('chapterListTemplate');
+  const topNavBar = document.getElementById('topNav');
+  const chapterItem = document.getElementById('chapterItem');
+  const chapterAction = document.getElementById('chapterAction');
+  const downloadIcon = document.getElementById('downloadIcon');
+  const removeIcon = document.getElementById('removeIcon');
+  const loadingIcon = document.getElementById('loadingIcon');
+
 
   cardTemplate.remove();
   backLinkTemplate.remove();
   bookListTemplate.remove();
   chapterListTemplate.remove();
+  topNavBar.remove();
+  chapterItem.remove();
+  chapterAction.remove();
+  downloadIcon.remove();
+  removeIcon.remove();
+  loadingIcon.remove();
 
   const downloadedLocalStorageKey = 'chapterDownloaded'
   const downloadedChaptersLS = JSON.parse(
@@ -44,7 +58,7 @@
       // 3 will trigger the delete method
       // we need to check in the local storage if the chapter has been downloaded already.
       this.state = this.chapterGuid in downloadedChaptersLS ? 3 : 1;
-      this.button = document.createElement('button');
+      this.button = chapterAction.content.cloneNode(true).querySelector('button');
       this.updteButtonLook()
       this.button.addEventListener('click', () => this.handleClick());
     }
@@ -52,18 +66,29 @@
     updteButtonLook() {
       this.button.disabled = false;
       switch(this.state){
+        // allow download
         case 1:
-          this.button.textContent = 'Download';
+          this.button.innerHTML = '';
+          this.button.appendChild(downloadIcon.content.cloneNode(true));
           break;
+
+        // Currently downloading
         case 2:
-          this.button.textContent = 'Downloading...';
+          this.button.innerHTML = '';
+          this.button.appendChild(loadingIcon.content.cloneNode(true));
           this.button.disabled = true;
           break;
+
+        // Allow remove
         case 3:
-          this.button.textContent = 'Remove';
+          this.button.innerHTML = '';
+          this.button.appendChild(removeIcon.content.cloneNode(true));
           break;
+
+        // Currently removing
         case 4:
-          this.button.textContent = 'Removing...';
+          this.button.innerHTML = '';
+          this.button.appendChild(loadingIcon.content.cloneNode(true));
           this.button.disabled = true;
           break;
         default:
@@ -225,12 +250,37 @@
     return clone;
   }
 
+  function createTopNav(text, href) {
+    const navBar = topNavBar.content.cloneNode(true);
+    const a = navBar.querySelector('a');
+    a.href = href;
+    const span = navBar.querySelector('div.title');
+    span.textContent = text;
+    return navBar;
+
+  }
+
+  function createChapterItem(text, link, viewed, downloadBtn=null) {
+    const item = chapterItem.content.cloneNode(true);
+    const li = item.querySelector('li');
+    const a = item.querySelector('a');
+    a.href = link
+    const titleSpan = item.querySelector('span.item-title');
+    titleSpan.textContent = text
+    if (viewed) {
+      a.classList.add('viewed');
+    }
+    if (downloadBtn) {
+      li.appendChild(downloadBtn.getElement());
+    }
+    return item
+  }
+
   // Loading the Main hage
   async function renderMaster() {
     // I want an extra button do add the feeds
     clearContent();
     contentEl.textContent = 'Loading master feed...';
-    const masterXMLURL = 'http://localhost:8080/master.xml'
     try {
       const xml = await loadXML(masterXMLURL);
       console.log(xml)
@@ -240,7 +290,8 @@
         contentEl.textContent = 'No books found in master feed.';
         return;
       }
-      // const ul = bookListTemplate.content.querySelector('ul').cloneNode();
+      const containerDiv = document.createElement("div");
+      containerDiv.classList.add("container");
       for (const book of books) {
         const card = cardTemplate.content.cloneNode(true);
         console.log(card)
@@ -260,15 +311,9 @@
         anchor.href = `#book=${encodeURIComponent(url)}`;
         const txt = card.querySelector(".card-text");
         txt.textContent = title;
-        // const li = document.createElement('li');
-        // const a = document.createElement('a');
-        // a.textContent = title;
-        // a.href = `#book=${encodeURIComponent(url)}`;
-        // li.appendChild(a);
-        // ul.appendChild(li);
-        contentEl.appendChild(card);
+        containerDiv.appendChild(card);
       }
-      // contentEl.appendChild(ul);
+      contentEl.appendChild(containerDiv);
     } catch(e) {
       renderError('Error loading master feed: ' + e.message);
     }
@@ -288,12 +333,8 @@
       const chapters = [...xml.querySelectorAll('item')];
       clearContent();
 
-      contentEl.appendChild(createBackLink('← Back to books', '#'));
-
-      const h2 = document.createElement('h2');
-      h2.textContent = bookTitle;
-      contentEl.appendChild(h2);
-
+      contentEl.appendChild(createTopNav(bookTitle, '#'));
+      
       if (chapters.length === 0) {
         contentEl.appendChild(document.createTextNode('No chapters found.'));
         return;
@@ -304,28 +345,26 @@
 
       const ul = chapterListTemplate.content.querySelector('ul').cloneNode();
       for (const chap of chapters) {
-        const title = chap.querySelector('title').textContent;
-        const guid = chap.querySelector('guid').textContent;
-
+        const title_obj = chap.querySelector('title')
+        const guid_obj = chap.querySelector('guid')
+        if (!title_obj || !guid_obj){
+          console.error('Issue with ' + bookTitle + ' and chapter: ', chap)
+          continue
+        }
+        const title = title_obj.textContent;
+        const guid = guid_obj.textContent;
         // When offLine and if the chapter hasn't been dowloaded, then we don't show it!
         if (!navigator.onLine && !downloadedChaptersLS[guid]){
           continue
         }
-        const li = document.createElement('li');
-        const a = document.createElement('a');
         const isViewed = viewedChapters.includes(guid)
-
-        a.textContent = title + (isViewed ? ' (viewed)': '');
-        a.href = `#book=${encodeURIComponent(bookUrl)}&chapter=${encodeURIComponent(guid)}`;
-
-        const row = document.createElement('div');
-        row.appendChild(a);
+        const chapterLink = `#book=${encodeURIComponent(bookUrl)}&chapter=${encodeURIComponent(guid)}`
+        
+        let btn = null;
         if (navigator.onLine){
-          const btn = new DownloadChapterBtn(bookUrl, guid);
-          row.appendChild(btn.getElement());
+          btn = new DownloadChapterBtn(bookUrl, guid);
         }
-
-        li.appendChild(row);
+        const li = createChapterItem(title, chapterLink, isViewed, btn);
         ul.appendChild(li);
       }
       if (ul.hasChildNodes()) {
@@ -375,22 +414,17 @@
       }
       clearContent();
 
-      contentEl.appendChild(createBackLink('← Back to chapters', `#book=${encodeURIComponent(bookUrl)}`));
-
-      const h2 = document.createElement('h2');
-      h2.textContent = bookTitle;
-      contentEl.appendChild(h2);
-
-      const h3 = document.createElement('h3');
-      h3.textContent = chapter.querySelector('title').textContent;
-      contentEl.appendChild(h3);
-
+      contentEl.appendChild(createTopNav(chapter.querySelector('title').textContent, `#book=${encodeURIComponent(bookUrl)}`));
       const imgs = await getChapterImages(chapter);
       if (imgs.length === 0) {
         contentEl.appendChild(document.createTextNode('No images found in chapter.'));
         return;
       }
-      await loadImagesSequentially(imgs, contentEl);
+
+      const imageContainer = document.createElement("div");
+      imageContainer.classList.add("images-container");
+      contentEl.appendChild(imageContainer);
+      await loadImagesSequentially(imgs, imageContainer);
 
       // move that later in the section that will show the next chapter button.
       // It'll mean we went at the end of the view!

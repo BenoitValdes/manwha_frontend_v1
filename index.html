@@ -11,6 +11,11 @@
   <!-- PWA icons -->
   <link rel="icon" href="icons/icon-192.png">
 
+  
+  <meta name="viewport" content="initial-scale=1, viewport-fit=cover, width=device-width">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <!-- Register service worker -->
   <script>
     if ("serviceWorker" in navigator) {
@@ -40,8 +45,68 @@
   <ul></ul>
 </template>
 
+<template id="chapterItem">
+  <li>
+    <a href="" class="item-text">
+      <span class="item-title">Chapter title</span>
+      <span class="item-date">Published date</span>
+    </a>
+  </li>
+</template>
+
+<template id="chapterAction">
+  <button class="download-btn">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 16L6 10h4V2h4v8h4l-6 6zm-6 4h12v2H6v-2z"/>
+    </svg>
+  </button>
+</template>
+
+<template id="downloadIcon">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 16L6 10h4V2h4v8h4l-6 6zm-6 4h12v2H6v-2z"/>
+  </svg>
+</template>
+
+<template id="removeIcon">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.89 4.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z"/>
+  </svg>
+</template>
+
+<template id="loadingIcon">
+  <div class="loader-container --pulsing-dots">
+      <svg class="svg-loader" viewBox="0 0 120 30" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="15" cy="15" r="15">
+              <animate attributeName="r" from="15" to="9" begin="0s" dur="0.8s" repeatCount="indefinite"/>
+              <animate attributeName="fill-opacity" from="1" to="0.5" begin="0s" dur="0.8s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="60" cy="15" r="9">
+              <animate attributeName="r" from="9" to="15" begin="0s" dur="0.8s" repeatCount="indefinite"/>
+              <animate attributeName="fill-opacity" from="0.5" to="1" begin="0s" dur="0.8s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="105" cy="15" r="15">
+              <animate attributeName="r" from="15" to="9" begin="0.4s" dur="0.8s" repeatCount="indefinite"/>
+              <animate attributeName="fill-opacity" from="1" to="0.5" begin="0.4s" dur="0.8s" repeatCount="indefinite"/>
+          </circle>
+      </svg>
+  </div>
+</template>
+
 <template id="chapterListTemplate">
-  <ul></ul>
+  <ul class="download-list"></ul>
+</template>
+
+<template id="topNav">
+  <div class="navbar">
+    <a href="" class="back-button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="17" viewBox="0 0 12 17">
+        <path d="M0 8.47656C0 8.7207 0.0878906 8.93555 0.273438 9.12109L8.01758 16.6895C8.18359 16.8652 8.39844 16.9531 8.65234 16.9531C9.16016 16.9531 9.55078 16.5723 9.55078 16.0645C9.55078 15.8105 9.44336 15.5957 9.28711 15.4297L2.17773 8.47656L9.28711 1.52344C9.44336 1.35742 9.55078 1.13281 9.55078 0.888672C9.55078 0.380859 9.16016 0 8.65234 0C8.39844 0 8.18359 0.0878906 8.01758 0.253906L0.273438 7.83203C0.0878906 8.00781 0 8.23242 0 8.47656Z" 
+          fill="currentColor"/>
+      </svg>
+    </a>
+    <div class="title">Page Title</div>
+  </div>
 </template>
 
 <div id="content">Loading...</div>

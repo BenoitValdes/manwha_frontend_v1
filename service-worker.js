@@ -10,17 +10,6 @@ const STATIC_FILES = [
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png",
-
-  // New version additions
-  // "/js/main.js",
-  // "/js/routing.js",
-  // "/js/template.js",
-  // "/js/utils.js",
-  // "/js/components/download_btn.js",
-  // "/templates/back_link.html",
-  // "/templates/book_list.html",
-  // "/templates/card_template.html",
-  // "/templates/chapter_list.html",
 ];
 
 // ✅ Precache files without automatically creating routes
@@ -45,31 +34,6 @@ workbox.routing.registerRoute(
     networkTimeoutSeconds: 5
   })
 );
-
-// // ✅ Images → only cached when explicitly requested
-// self.addEventListener("message", async (event) => {
-//   if (event.data?.type === "CACHE_IMAGES") {
-//     const urls = event.data.payload;
-//     const cache = await caches.open("chapter-images");
-//     await Promise.all(
-//       urls.map(async (url) => {
-//         try {
-//           const request = new Request(url);
-//           const res = await fetch(request, {mode: 'no-cors'});
-//           if (res.ok) {
-//             await cache.put(url, res.clone());
-//           }
-//           else {
-//             console.error('Unable to download the image!')
-//           }
-//         } catch (err) {
-//           console.warn("Failed to cache:", url, err);
-//         }
-//       })
-//     );
-//     event.ports[0].postMessage({status: "done"});
-//   }
-// });
 
 workbox.routing.registerRoute(
   ({request}) => request.destination === "image",
