@@ -114,7 +114,7 @@
       const imgs = await getChapterImages(chapter);
       const storedData = []
       for (const img of imgs) {
-        await cacheUrl(img, true)
+        await cacheImage(img)
         storedData.push(img)
       }
       downloadedChaptersLS[this.chapterGuid] = storedData
@@ -127,7 +127,7 @@
       this.setState(4);
 
       for (const url of downloadedChaptersLS[this.chapterGuid]){
-        await removeUrlFromCache(url)
+        await removeImageFromCache(url)
       }
       
       delete downloadedChaptersLS[this.chapterGuid]
@@ -150,7 +150,7 @@
 
 
   // Ask the service worker to cache the data from the URL we provide
-  async function cacheUrl(url, isImage=false) {
+  async function cacheImage(url) {
     return new Promise((resolve, reject) => {
       if (navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
 
@@ -162,13 +162,16 @@
         }
 
         navigator.serviceWorker.addEventListener('message', onMessage);
-        navigator.serviceWorker.controller.postMessage({ type: 'CACHE_URL', url: url, isImage: isImage});
+        navigator.serviceWorker.controller.postMessage({
+          type: 'CACHE_URL',
+          url: url
+        });
       }
     });
   }
 
   // Ask the service worker to remove the URL from the cache
-  async function removeUrlFromCache(url) {
+  async function removeImageFromCache(url) {
     return new Promise((resolve, reject) => {
       if (navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
 
@@ -302,7 +305,7 @@
         let img_url = '';
         if (img[0] != 'Null') {
             img_url = img[0];
-            cacheUrl(img_url, true);
+            cacheImage(img_url);
         }
         const img_item = card.querySelector("img");
         img_item.src = img_url;
