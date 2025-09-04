@@ -78,8 +78,7 @@ ul.download-list li:last-child {
 }
 
 .viewed {
-    background: red;
-    /* background: #c6c9cc; */
+    background: #c6c9cc;
 }
 
 .item-title {
