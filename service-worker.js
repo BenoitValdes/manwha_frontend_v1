@@ -6,13 +6,13 @@ const BASE_PATH = self.registration.scope.replace(self.location.origin, '').repl
 const FEED_CACHE = 'feeds';
 const IMAGE_CACHE = 'chapter-images';
 const STATIC_FILES = [
-  `${BASE_PATH}/`,
-  `${BASE_PATH}/index.html`,
-  `${BASE_PATH}/styles.css`,
-  `${BASE_PATH}/main.js`,
-  `${BASE_PATH}/manifest.json`,
-  `${BASE_PATH}/icon-192.png`,
-  `${BASE_PATH}/icon-512.png`,
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/main.js',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 // Force new SW to activate immediately
