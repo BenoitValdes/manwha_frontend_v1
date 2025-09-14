@@ -13,7 +13,7 @@ const STATIC_FILES = [
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
-];
+].map(path => `${BASE_PATH}${path}`);
 
 // Force new SW to activate immediately
 self.skipWaiting();
