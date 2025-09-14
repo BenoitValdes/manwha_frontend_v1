@@ -56,6 +56,7 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'CACHE_URL' && event.data.url) {
     // Use this proxy so we don't work around the CORS and get a full response.
     const proxyUrl = `https://soft-fire-c635.valdes-benoit.workers.dev/?url=${encodeURIComponent(event.data.url)}`
+    console.warn('Caching an image: ' + event.data.url);
     const request = new Request(proxyUrl);
     caches.open(IMAGE_CACHE).then(cache => {
       fetch(request).then(response => {
