@@ -143,7 +143,7 @@ ul.download-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    padding-top: 50px;
+    padding-top: 50px + env(safe-area-inset-top);
     overflow: hidden;
 }
 
@@ -167,7 +167,7 @@ ul.download-list li:last-child {
 }
 
 .item-text:hover {
-    background: var(--surface);  
+    background: var(--surface);
 }
 
 .viewed {
