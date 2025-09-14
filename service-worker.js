@@ -1,6 +1,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js");
 
-const BASE_PATH = '/manwha_frontend_v1';
+// Service worker’s base URL (ends with a slash)
+const BASE_PATH = self.registration.scope.replace(self.location.origin, '').replace(/\/$/, '');
 
 const FEED_CACHE = 'feeds';
 const IMAGE_CACHE = 'chapter-images';
