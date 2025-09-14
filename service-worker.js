@@ -51,9 +51,11 @@ workbox.routing.registerRoute(
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'CACHE_URL' && event.data.url) {
-    const request = new Request(event.data.url);
+    // Use this proxy so we don't work around the CORS and get a full response.
+    const proxyUrl = `https://soft-fire-c635.valdes-benoit.workers.dev/?url=${encodeURIComponent(event.data.url)}`
+    const request = new Request(proxyUrl);
     caches.open(IMAGE_CACHE).then(cache => {
-      fetch(request, {mode: 'no-cors'}).then(response => {
+      fetch(request).then(response => {
         cache.put(event.data.url, response.clone());
         // Send message back to the client that caching is done
         event.source.postMessage({ 

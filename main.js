@@ -1,52 +1,34 @@
 
   const contentEl = document.getElementById('content');
   const masterXMLURL = 'https://raw.githubusercontent.com/BenoitValdes/manwha_rss_feeds/refs/heads/main/master.xml';
-
-  // Grab templates and remove from DOM
-  const cardTemplate = document.getElementById('cardTemplate');
-  const backLinkTemplate = document.getElementById('backLinkTemplate');
-  const bookListTemplate = document.getElementById('bookListTemplate');
-  const chapterListTemplate = document.getElementById('chapterListTemplate');
-  const topNavBar = document.getElementById('topNav');
-  const chapterItem = document.getElementById('chapterItem');
-  const chapterAction = document.getElementById('chapterAction');
-  const downloadIcon = document.getElementById('downloadIcon');
-  const removeIcon = document.getElementById('removeIcon');
-  const loadingIcon = document.getElementById('loadingIcon');
-
-
-  cardTemplate.remove();
-  backLinkTemplate.remove();
-  bookListTemplate.remove();
-  chapterListTemplate.remove();
-  topNavBar.remove();
-  chapterItem.remove();
-  chapterAction.remove();
-  downloadIcon.remove();
-  removeIcon.remove();
-  loadingIcon.remove();
-
-  const downloadedLocalStorageKey = 'chapterDownloaded'
+  let abortLoading = false;
+  let navbarsHidden = false;
+  const viewedChapterStorageKey = 'viewedChapters';
+  const downloadedLocalStorageKey = 'chapterDownloaded';
   const downloadedChaptersLS = JSON.parse(
     localStorage.getItem(downloadedLocalStorageKey) || '{}'
   );
 
-  async function downloadChapter(images) {
+  // Grab templates and remove them from DOM
+  const cardTemplate = document.getElementById('cardTemplate');
+  cardTemplate.remove();
+  const chapterListTemplate = document.getElementById('chapterListTemplate');
+  chapterListTemplate.remove();
+  const topNavBar = document.getElementById('topNav');
+  topNavBar.remove();
+  const bottomNavBar = document.getElementById('bottomNav');
+  bottomNavBar.remove();
+  const chapterItem = document.getElementById('chapterItem');
+  chapterItem.remove();
+  const chapterAction = document.getElementById('chapterAction');
+  chapterAction.remove();
+  const downloadIcon = document.getElementById('downloadIcon');
+  downloadIcon.remove();
+  const removeIcon = document.getElementById('removeIcon');
+  removeIcon.remove();
+  const loadingIcon = document.getElementById('loadingIcon');
+  loadingIcon.remove();
 
-    const swReg = navigator.serviceWorker;
-    
-    // Use MessageChannel to wait for response from SW
-    const channel = new MessageChannel();
-    channel.port1.onmessage = (event) => {
-      console.log("Download finished:", event.data);
-      alert("Chapter downloaded!");
-    };
-
-    navigator.serviceWorker.controller.postMessage(
-      {type: "CACHE_IMAGES", payload: images},
-      [channel.port2]
-    );
-  }
 
   class DownloadChapterBtn {
     constructor(bookUrl, chapterGuid) {
@@ -149,7 +131,7 @@
   }
 
 
-  // Ask the service worker to cache the data from the URL we provide
+  // Ask the service worker to cache an image from the URL we provide
   async function cacheImage(url) {
     return new Promise((resolve, reject) => {
       if (navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -190,16 +172,6 @@
     });
   }
 
-  // Make the URL hashable to retrieve all the data and load the content
-  function getHashParams() {
-    const hash = location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    return {
-      book: params.get('book'),
-      chapter: params.get('chapter')
-    };
-  }
-
   // Lazy function to load an XML and return the content.
   async function loadXML(url) {
     const res = await fetch(url, { cache: "no-store" });
@@ -223,6 +195,14 @@
     return [...imgs].map(img => img.getAttribute('src'));
   }
 
+  async function getBookImage(bookXML){
+    const img = await getChapterImages(bookXML);
+    if (img[0] != 'Null') {
+        return img[0];
+    }
+    return 'https://dummyimage.com/692x1002/999/fff&text=NotFound'
+  }
+
   // Clear the content DIV that is recieving the page content.
   function clearContent() {
     contentEl.innerHTML = '';
@@ -236,22 +216,15 @@
 
   // Store chapter viewed
     function markChapterViewed(guid) {
-    console.log('markChapterViewed called with guid:', guid);
-    const viewed = JSON.parse(localStorage.getItem('viewedChapters') || '[]');
+    const viewed = JSON.parse(
+      localStorage.getItem(viewedChapterStorageKey) || '[]'
+    );
     if (!viewed.includes(guid)) {
         viewed.push(guid);
-        localStorage.setItem('viewedChapters', JSON.stringify(viewed));
+        localStorage.setItem(viewedChapterStorageKey, JSON.stringify(viewed));
     }
     }
 
-  // Cleate the dumb navbar item
-  function createBackLink(text, href) {
-    const clone = backLinkTemplate.content.cloneNode(true);
-    const a = clone.querySelector('a');
-    a.textContent = text;
-    a.href = href;
-    return clone;
-  }
 
   function createTopNav(text, href) {
     const navBar = topNavBar.content.cloneNode(true);
@@ -263,13 +236,70 @@
 
   }
 
-  function createChapterItem(text, link, viewed, downloadBtn=null) {
+  function createBottomNav(text, prefHref=null, nextHref=null) {
+    const navBar = bottomNavBar.content.cloneNode(true);
+    const span = navBar.querySelector('span.chapter-title');
+    span.textContent = text;
+
+    const prevElem = navBar.querySelector('a.prev-icon');
+    if (prefHref) {
+      prevElem.href = prefHref;
+    }
+    else {
+      prevElem.remove()
+    }
+
+    const nextElem = navBar.querySelector('a.next-icon');
+    if (nextHref) {
+      nextElem.href = nextHref;
+    }
+    else {
+      nextElem.remove()
+    }
+    return navBar;
+
+  }
+
+  function parsePubDate(pubDateStr) {
+    const date = new Date(pubDateStr);
+
+    // format like 03 Sep 2025
+    const formatted = date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+
+    // calculate "x days ago"
+    const now = new Date();
+    const diffTime = now - date;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    let relative;
+    if (diffDays === 0) {
+      relative = "today";
+    } else if (diffDays === 1) {
+      relative = "1 day ago";
+    } else if (diffDays <= 6) {
+      relative = `${diffDays} days ago`;
+    } else {
+      relative = formatted; // fallback to the date
+    }
+
+    return relative;
+  }
+
+  function createChapterItem(text, date, link, viewed, downloadBtn=null) {
     const item = chapterItem.content.cloneNode(true);
     const li = item.querySelector('li');
     const a = item.querySelector('a');
     a.href = link
     const titleSpan = item.querySelector('span.item-title');
     titleSpan.textContent = text
+
+    const dateSpan = item.querySelector('span.item-date');
+    dateSpan.textContent = parsePubDate(date)
+
     if (viewed) {
       a.classList.add('viewed');
     }
@@ -279,6 +309,30 @@
     return item
   }
 
+  // Add the images 1 by 1 in the order so we don't get spoiled with slow connection
+  async function loadImagesSequentially(imgUrls, container) {
+    for (const url of imgUrls) {
+        const img = document.createElement('img');
+        if (abortLoading) break;
+
+        container.appendChild(img);
+
+        await new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = url;
+        });
+      }
+  }
+
+  function buildUrl(book, chapter=null) {
+    let url = `#book=${encodeURIComponent(book)}`;
+    if (chapter) {
+      url += `&chapter=${encodeURIComponent(chapter)}`
+    }
+    return url;
+  }
+
   // Loading the Main hage
   async function renderMaster() {
     // I want an extra button do add the feeds
@@ -286,7 +340,6 @@
     contentEl.textContent = 'Loading master feed...';
     try {
       const xml = await loadXML(masterXMLURL);
-      console.log(xml)
       const books = [...xml.querySelectorAll('item')];
       clearContent();
       if (books.length === 0) {
@@ -297,21 +350,18 @@
       containerDiv.classList.add("container");
       for (const book of books) {
         const card = cardTemplate.content.cloneNode(true);
-        console.log(card)
         // continue
         const title = book.querySelector('title').textContent;
         const url = book.querySelector('link').textContent;
-        const img = await getChapterImages(book);
-        let img_url = '';
-        if (img[0] != 'Null') {
-            img_url = img[0];
-            cacheImage(img_url);
+        const img = await getBookImage(book)
+        if (img) {
+          cacheImage(img);
         }
         const img_item = card.querySelector("img");
-        img_item.src = img_url;
+        img_item.src = img;
 
         const anchor = card.querySelector(".card");
-        anchor.href = `#book=${encodeURIComponent(url)}`;
+        anchor.href = buildUrl(url);
         const txt = card.querySelector(".card-text");
         txt.textContent = title;
         containerDiv.appendChild(card);
@@ -356,18 +406,22 @@
         }
         const title = title_obj.textContent;
         const guid = guid_obj.textContent;
+
         // When offLine and if the chapter hasn't been dowloaded, then we don't show it!
         if (!navigator.onLine && !downloadedChaptersLS[guid]){
           continue
         }
+
         const isViewed = viewedChapters.includes(guid)
-        const chapterLink = `#book=${encodeURIComponent(bookUrl)}&chapter=${encodeURIComponent(guid)}`
-        
+        const chapterLink = buildUrl(bookUrl, guid);
+
+        const chapterDate = chap.querySelector('pubDate').textContent
+
         let btn = null;
         if (navigator.onLine){
           btn = new DownloadChapterBtn(bookUrl, guid);
         }
-        const li = createChapterItem(title, chapterLink, isViewed, btn);
+        const li = createChapterItem(title, chapterDate, chapterLink, isViewed, btn);
         ul.appendChild(li);
       }
       if (ul.hasChildNodes()) {
@@ -384,40 +438,48 @@
     }
   }
 
-  let abortLoading = false;
-  // Add the images 1 by 1 in the order so we don't get spoiled with slow connection
-  async function loadImagesSequentially(imgUrls, container) {
-    // abortLoading = false;
-    for (const url of imgUrls) {
-        const img = document.createElement('img');
-        //
-        if (abortLoading) break;
-        // Optionally, you can add some "loading" placeholder or style here
-
-        container.appendChild(img);
-
-        await new Promise((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve(); // ignore error and move on
-        img.src = url; // start loading image
-        });
-    }
-    }
-
+  // Loading the Chapter content
   async function renderChapter(bookUrl, chapterGuid) {
     clearContent();
     contentEl.innerHTML = `<p>Loading chapter ${chapterGuid} from book ${bookUrl}...</p>`;
     try {
       const xml = await loadXML(bookUrl);
       const bookTitle = xml.querySelector('channel > title').textContent || 'Book';
-      const chapter = await getChapterItem(xml, chapterGuid)
+      const chapters = [...xml.querySelectorAll('item')];
+      let chapter = null;
+      let next = null;
+      let prev = null;
+      for (let i = 0; i < chapters.length; i++) {
+        const chap = chapters[i];
+        if (chap.querySelector('guid').textContent != chapterGuid){
+          continue
+        }
+        chapter = chap;
+        // As the order is from newest to oldest, we invest the next/prev values
+        next = i > 0 ? chapters[i - 1] : null;
+        prev = i < chapters.length - 1 ? chapters[i + 1] : null;
+      }
+
       if (!chapter) {
         renderError('Chapter not found.');
         return;
       }
       clearContent();
 
-      contentEl.appendChild(createTopNav(chapter.querySelector('title').textContent, `#book=${encodeURIComponent(bookUrl)}`));
+      navbarsHidden = false;
+
+      contentEl.appendChild(createTopNav(
+        bookTitle,
+        buildUrl(bookUrl)
+      ));
+
+      contentEl.appendChild(createBottomNav(
+        chapter.querySelector('title').textContent,
+        prev ? buildUrl(bookUrl, prev.querySelector('guid').textContent) : null,
+        next ? buildUrl(bookUrl, next.querySelector('guid').textContent) : null,
+      ));
+      const topNavBarElem = contentEl.querySelector('div.top-navbar');
+      const bottomNavBarElem = contentEl.querySelector('div.bottom-navbar');
       const imgs = await getChapterImages(chapter);
       if (imgs.length === 0) {
         contentEl.appendChild(document.createTextNode('No images found in chapter.'));
@@ -426,15 +488,60 @@
 
       const imageContainer = document.createElement("div");
       imageContainer.classList.add("images-container");
-      contentEl.appendChild(imageContainer);
-      await loadImagesSequentially(imgs, imageContainer);
+      contentEl.appendChild(imageContainer);      
 
-      // move that later in the section that will show the next chapter button.
-      // It'll mean we went at the end of the view!
-      markChapterViewed(chapterGuid);
+      // Handle scroll to hide navbars
+      imageContainer.addEventListener("scroll", () => {
+          const currentScrollY = imageContainer.scrollTop;
+        if (currentScrollY >= imageContainer.scrollHeight * 0.97) {
+          // Show navbars
+          topNavBarElem.classList.remove("hidden");
+          bottomNavBarElem.classList.remove("hidden");
+          navbarsHidden = false;
+          markChapterViewed(chapterGuid);
+
+        }
+        else if (!navbarsHidden) {
+          // Always hide navbars on scroll, regardless of direction
+          topNavBarElem.classList.add("hidden");
+          bottomNavBarElem.classList.add("hidden");
+          navbarsHidden = true;
+        }
+      });
+      // Handle clicks to toggle navbars
+      imageContainer.addEventListener("click", () => {
+          if (navbarsHidden) {
+              // Show navbars
+              topNavBarElem.classList.remove("hidden");
+              bottomNavBarElem.classList.remove("hidden");
+              navbarsHidden = false;
+          } else {
+              // Hide navbars
+              topNavBarElem.classList.add("hidden");
+              bottomNavBarElem.classList.add("hidden");
+              navbarsHidden = true;
+          }
+      });
+      // Prevent drag-and-drop behavior
+      imageContainer.addEventListener("dragstart", (event) => {
+          event.preventDefault();
+      });
+
+      await loadImagesSequentially(imgs, imageContainer);
     } catch(e) {
       renderError('Error loading chapter: ' + e.message);
     }
+  }
+
+
+  // Make the URL hashable to retrieve all the data and load the content
+  function getHashParams() {
+    const hash = location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    return {
+      book: params.get('book'),
+      chapter: params.get('chapter')
+    };
   }
 
   async function router() {

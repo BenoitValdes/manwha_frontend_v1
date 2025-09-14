@@ -29,20 +29,11 @@
 </head>
 <body>
 
-
 <template id="cardTemplate">
   <a class="card">
     <img>
     <div class="card-text"></div>
   </a>
-</template>
-
-<template id="backLinkTemplate">
-  <a class="back-link"></a>
-</template>
-
-<template id="bookListTemplate">
-  <ul></ul>
 </template>
 
 <template id="chapterItem">
@@ -98,7 +89,7 @@
 </template>
 
 <template id="topNav">
-  <div class="navbar">
+  <div class="navbar top-navbar">
     <a href="" class="back-button">
       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="17" viewBox="0 0 12 17">
         <path d="M0 8.47656C0 8.7207 0.0878906 8.93555 0.273438 9.12109L8.01758 16.6895C8.18359 16.8652 8.39844 16.9531 8.65234 16.9531C9.16016 16.9531 9.55078 16.5723 9.55078 16.0645C9.55078 15.8105 9.44336 15.5957 9.28711 15.4297L2.17773 8.47656L9.28711 1.52344C9.44336 1.35742 9.55078 1.13281 9.55078 0.888672C9.55078 0.380859 9.16016 0 8.65234 0C8.39844 0 8.18359 0.0878906 8.01758 0.253906L0.273438 7.83203C0.0878906 8.00781 0 8.23242 0 8.47656Z" 
@@ -106,6 +97,22 @@
       </svg>
     </a>
     <div class="title">Page Title</div>
+  </div>
+</template>
+
+<template id="bottomNav">
+  <div class="navbar bottom-navbar">
+    <a href="" class="prev-icon">
+      <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16.7871" height="15.5371">
+        <path d="M14.7559 0.00976562C14.3652 0.00976562 14.0527 0.175781 13.6426 0.380859L1.09375 6.47461C0.263672 6.88477 0 7.25586 0 7.77344C0 8.29102 0.263672 8.67188 1.09375 9.08203L13.6426 15.166C14.0625 15.3711 14.375 15.5371 14.7656 15.5371C15.4883 15.5371 15.9277 14.9902 15.9277 14.1406L15.9277 1.40625C15.9277 0.556641 15.4785 0.00976562 14.7559 0.00976562Z" fill="#ffffff" fill-opacity="0.85"/>
+      </svg>
+    </a>
+    <span class="chapter-title"></span>
+    <a href="" class="next-icon">
+      <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16.0742" height="15.5371">
+        <path d="M1.31836 15.5371C1.70898 15.5371 2.02148 15.3711 2.43164 15.166L14.9805 9.08203C15.8105 8.67188 16.0742 8.29102 16.0742 7.77344C16.0742 7.25586 15.8105 6.88477 14.9805 6.47461L2.43164 0.380859C2.01172 0.175781 1.69922 0.00976562 1.30859 0.00976562C0.585938 0.00976562 0.136719 0.556641 0.136719 1.40625L0.146484 14.1406C0.146484 14.9902 0.595703 15.5371 1.31836 15.5371Z" fill="#ffffff" fill-opacity="0.85"/>
+      </svg>
+    </a>
   </div>
 </template>
 

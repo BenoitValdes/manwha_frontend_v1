@@ -1,11 +1,40 @@
+/* Light theme (default) */
+:root {
+  --background: #ffffff;
+  --surface: #f2f2f7;
+  --primary: #000000;
+  --secondary: #000000;
+  --on-background: #000000;
+  --on-surface: #000000;
+  --on-surface-secondary: #000000;
+  --on-primary: #000000;
+  --on-secondary: #000000;
+}
+
+/* Dark theme (auto-detected) */
+@media (prefers-color-scheme: dark) {
+  :root {
+  --background: #131313;
+  --surface: #212121;
+  --primary: #007bff;
+  --secondary: #00d4bf;
+  --on-background: #d9d9d9;
+  --on-surface: #dddddd;
+  --on-surface-secondary: #9b9b9b;
+  --on-primary: #000000;
+  --on-secondary: #000000;
+  }
+}
+
 
 body {
     margin: 0;
+    background-color: var(--background);
 }
 
 a {
     text-decoration: none;
-    color: black;
+    color: var(--on-surface);
 }
 
 /* Card behavior */
@@ -33,8 +62,8 @@ a {
     width: 100%;
     height: 33%;
     bottom: 0;
-    color: white;
-    background: linear-gradient(to top, black, transparent);
+    color: var(--on-background);
+    background: linear-gradient(to top, var(--background), transparent);
     display: flex;
     align-items: flex-end;
     text-align: center;
@@ -43,22 +72,85 @@ a {
     font-size: 16pt;
 }
 
+
+/* Nav Bars */
+
+.navbar {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    background-color: var(--surface);
+    color: var(--on-surface);
+    transition: transform 0.3s ease-in-out; /* Smooth transition */
+    position: fixed; /* Ensure navbar stays in place when scrolled */
+    width: 100%; /* Prevent any layout issues */
+    z-index: 1000; /* Ensure it stays above other content */
+}
+
+.top-navbar {
+    padding-top: env(safe-area-inset-top);
+    border-bottom: 1px solid var(--on-surface-secondary);
+}
+
+.bottom-navbar {
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--on-surface-secondary);
+    bottom: 0;
+}
+
+
+.top-navbar.hidden {
+    transform: translateY(-110%); /* Move completely out of view */
+}
+
+
+.bottom-navbar.hidden {
+    transform: translateY(100%); /* Move bottom navbar fully out of view */
+}
+
+
+.back-button {
+    position: absolute;
+    padding-left: 20px; /* spacing from left edge */
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    width: 30px;
+    color: var(--on-surface);
+}
+
+.title, .chapter-title{
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.prev-icon {
+    padding-left: 20px;
+}
+.next-icon {
+    position: absolute;
+    right: 20px;
+}
+
 /* Chapter List behavior */
 
 ul.download-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    border: 1px solid #ccc;
-    border-radius: 8px;
+    padding-top: 50px;
     overflow: hidden;
 }
 
 ul.download-list li {
     display: flex;
     justify-content: space-between;
-    align-items: stretch;   /* make children stretch full height */
-    border-bottom: 1px solid #ccc;
+    align-items: stretch;
+    border-bottom: 1px solid var(--on-surface-secondary);
 }
 
 ul.download-list li:last-child {
@@ -66,47 +158,48 @@ ul.download-list li:last-child {
 }
 
 .item-text {
-    flex: 1;                       /* take all available space */
+    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 12px 16px;            /* padding inside text column */
+    padding: 12px 16px;
 }
 
 .item-text:hover {
-    background: #e9ecef;  
+    background: var(--surface);  
 }
 
 .viewed {
-    background: #c6c9cc;
+    background: var(--surface);
 }
 
 .item-title {
     font-weight: bold;
     font-size: 16px;
+    color: var(--on-surface);
 }
 
 .item-date {
     font-size: 13px;
-    color: #666;
+    color: var(--on-surface-secondary);
 }
 
 .download-btn {
     background: none;
     border: none;
     cursor: pointer;
-    color: #007bff;
+    color: var(--primary);
     font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 20px;
-    border-left: 1px solid #ddd;
+    border-left: 1px solid var(--on-surface-secondary);
     align-self: stretch;            /* force full li height */
 }
 
 .download-btn:hover {
-    background: #e9ecef;            /* highlight full cell */
+    background: var(--surface);
 }
 
 .download-btn svg {
@@ -121,7 +214,6 @@ ul.download-list li:last-child {
 /* --- Pulsing Dots Loader Styles --- */
 .loader-container.--pulsing-dots {
     --loader-size: 20px;
-    --loader-color-primary: #007bff;
     --loader-speed: 1s;
 }
 
@@ -131,7 +223,7 @@ ul.download-list li:last-child {
 }
 
 .loader-container.--pulsing-dots circle {
-    fill: var(--loader-color-primary);
+    fill: var(--primary);
 }
 
 .loader-container.--pulsing-dots circle animate {
@@ -152,34 +244,4 @@ ul.download-list li:last-child {
     -webkit-touch-callout: none; /* Disable the context menu on iOS */
     -webkit-user-select: none; /* Prevent text/image selection */
     user-select: none; /* Prevent selection on other browsers */
-}
-
-.navbar {
-    position: relative;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid #ccc;
-}
-
-.back-button {
-    position: absolute;
-    padding-left: 10px; /* spacing from left edge */
-    background: none;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    width: 30px;
-    /* height: 100%; */
-}
-.back-button svg {
-    color: black; /* changes SVG color on hover */
-}
-
-.title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 18px;
-    font-weight: bold;
 }
