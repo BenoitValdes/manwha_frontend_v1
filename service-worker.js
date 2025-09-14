@@ -2,6 +2,7 @@ importScripts("https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox
 
 // Service worker’s base URL (ends with a slash)
 const BASE_PATH = self.registration.scope.replace(self.location.origin, '').replace(/\/$/, '');
+console.warn('Base path: '+ BASE_PATH)
 
 const FEED_CACHE = 'feeds';
 const IMAGE_CACHE = 'chapter-images';
