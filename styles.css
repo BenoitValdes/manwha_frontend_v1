@@ -143,7 +143,8 @@ ul.download-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    padding-top: 50px + env(safe-area-inset-top);
+    padding-top: 50px;
+    margin-top: env(safe-area-inset-top);
     overflow: hidden;
 }
 
